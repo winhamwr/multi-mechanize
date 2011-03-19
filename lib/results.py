@@ -158,7 +158,12 @@ class Results(object):
         
         
     def __parse_file(self):
-        import json
+        # first try to import a fast newer version of simplejson
+        try:
+            import simplejson as json
+        except ImportError:
+            # fall back to the old, slow library version
+            import json
         import csv
         f = csv.reader(open(self.results_file_name, 'rb'))
         resp_stats_list = []
