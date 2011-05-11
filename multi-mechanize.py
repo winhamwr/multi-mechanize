@@ -28,6 +28,7 @@ import lib.results as results
 import lib.progressbar as progressbar
 import csv
 import json
+import traceback
 
 MM_ROOT = os.path.abspath(os.path.dirname(__file__))
 
@@ -335,13 +336,20 @@ class Agent(threading.Thread):
         trans.process_num = self.process_num
 
         while elapsed < self.run_time:
-            error = ''
+            error_str = ''
             start = self.default_timer()
 
             try:
                 trans.run()
             except Exception, e:  # test runner catches all script exceptions here
-                error = str(e).replace(',', '')
+                error_str = str(e).replace(',', '')
+                if not error_str:
+                    # We need an error string otherwise this won't be reported
+                    # as an error
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    traceback.print_exception(
+                        exc_type, exc_value, exc_traceback)
+                    error_str = "Undefined Error"
 
             finish = self.default_timer()
 
@@ -350,7 +358,13 @@ class Agent(threading.Thread):
 
             epoch = time.mktime(time.localtime())
 
-            fields = (elapsed, epoch, self.user_group_name, scriptrun_time, error, trans.custom_timers)
+            fields = (
+                elapsed,
+                epoch,
+                self.user_group_name,
+                scriptrun_time,
+                error_str,
+                trans.custom_timers)
             self.queue.put(fields)
 
 

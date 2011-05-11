@@ -203,10 +203,19 @@ class Results(object):
             custom_timers = json.loads(fields[6])
             self.uniq_timer_names.update(custom_timers.keys())
 
-            r = ResponseStats(request_num, elapsed_time, epoch_secs, user_group_name, trans_time, error, custom_timers)
+            response_stats = ResponseStats(
+                request_num,
+                elapsed_time,
+                epoch_secs,
+                user_group_name,
+                trans_time,
+                error,
+                custom_timers)
 
-            if elapsed_time < self.run_time:  # drop all times that appear after the last request was sent (incomplete interval)
-                resp_stats_list.append(r)
+            if elapsed_time < self.run_time:
+                # Drop all times that appear after the last request was sent
+                # (incomplete interval)
+                resp_stats_list.append(response_stats)
 
             if error != '':
                 self.total_errors += 1
