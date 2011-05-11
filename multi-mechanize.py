@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 #
 #  Copyright (c) 2010 Corey Goldberg (corey@goldb.org)
-#  License: GNU LGPLv3 - distributed under the terms of the GNU Lesser General Public License version 3
-#  
+#  License: GNU LGPLv3 - distributed under the terms of the GNU Lesser General
+#  Public License version 3
+#
 #  This file is part of Multi-Mechanize:
-#       Multi-Process, Multi-Threaded, Web Load Generator, with python-mechanize agents
+#       Multi-Process, Multi-Threaded, Web Load Generator, with python-mechanize
+#       agents
 #
 #  requires Python 2.6+
 
@@ -12,6 +14,7 @@
 
 import ConfigParser
 import glob
+import logging
 import multiprocessing
 import optparse
 import os
@@ -22,66 +25,133 @@ import sys
 import threading
 import time
 import lib.results as results
-import lib.progressbar as progressbar        
+import lib.progressbar as progressbar
+import csv
+import json
+
+MM_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 usage = 'Usage: %prog <project name> [options]'
 parser = optparse.OptionParser(usage=usage)
-parser.add_option('-p', '--port', dest='port', type='int', help='rpc listener port')
+parser.add_option('-p', '--port',
+                  dest='port', type='int',
+                  help='rpc listener port')
+parser.add_option('-v', '--verbose',
+                  dest='verbose', action='store_true', default=False,
+                  help='Produce verbose output')
 cmd_opts, args = parser.parse_args()
+
+if cmd_opts.verbose:
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('mm')
 
 try:
     project_name = args[0]
 except IndexError:
-    sys.stderr.write('\nERROR: no project specified\n\n')
-    sys.stderr.write('usage: python multi-mechanize.py <project_name>\n')
-    sys.stderr.write('example: python multi-mechanize.py default_project\n\n')
-    sys.exit(1)  
+    logger.critical('\nNo project specified\n\n')
+    logger.critical('usage: python multi-mechanize.py <project_name>\n')
+    logger.critical('example: python multi-mechanize.py default_project\n\n')
+    sys.exit(1)
 
-scripts_path = 'projects/%s/test_scripts' % project_name
-if not os.path.exists(scripts_path):
-    sys.stderr.write('\nERROR: can not find project: %s\n\n' % project_name)
-    sys.exit(1) 
-sys.path.append(scripts_path)          
-for f in glob.glob( '%s/*.py' % scripts_path):  # import all test scripts as modules
-    f = f.replace(scripts_path, '').replace(os.sep, '').replace('.py', '')
-    exec('import %s' % f)
+def get_project_path(project_name):
+    rel_project_path = os.path.join('projects', project_name)
+    abs_project_path = os.path.abspath(project_name)
+    mm_root_project_path = os.path.join(MM_ROOT, 'projects', project_name)
+
+    paths = [rel_project_path, abs_project_path, mm_root_project_path]
+    for path in paths:
+        if os.path.exists(path):
+            return path
+
+    logger.critical('\nCan not find project: %s\n\n', project_name)
+    logger.debug('Searched paths: %s\n\n', paths)
+    sys.exit(1)
+
+project_path = get_project_path(project_name)
+logger.debug("Project path is %s", project_path)
+
+def get_mm_templates_dirs(project_path):
+    """
+    Get a list of filesystem directories Jinja can use to search for templates.
+
+    Uses project-level templates by default and falls back to multi-mechanize
+    default templates relative to this file.
+    """
+    dir_paths = [
+        os.path.join(project_path, 'templates'),
+        os.path.join(MM_ROOT, 'lib', 'templates'),
+    ]
+    if not any([os.path.exists(dir_path) for dir_path in dir_paths]):
+        logger.critical('\nNo templates directory found')
+        logger.debug('Checked: %s\n', dir_paths)
+
+    return dir_paths
 
 
+def import_test_scripts(project_path):
+    scripts_path = os.path.join(project_path, 'test_scripts')
+    sys.path.append(scripts_path)
+
+    script_modules = {}
+    for f in glob.glob( '%s/*.py' % scripts_path):  # import all test scripts as modules
+        logger.debug("Importing script: %s", f)
+        script_name = f.replace(scripts_path, '')
+        if script_name[0] == os.sep:
+            # Strip leading dot
+            script_name = script_name[1:]
+        script_path = script_name.replace(os.sep, '.').replace('.py', '')
+        script_modules[script_name] = __import__(script_path, {}, {}, [''])
+
+    logger.debug("Imported %s test scripts", len(script_modules))
+    return script_modules
+
+test_scripts = import_test_scripts(project_path)
 
 def main():
     if cmd_opts.port:
         import lib.rpcserver
         lib.rpcserver.launch_rpc_server(cmd_opts.port, project_name, run_test)
-    else:  
-        run_test()
-        
-        
-    
-def run_test(remote_starter=None):
+    else:
+        run_test(project_name, project_path)
+
+
+
+def run_test(project_name, project_path, remote_starter=None):
     if remote_starter is not None:
         remote_starter.test_running = True
         remote_starter.output_dir = None
-        
-    run_time, rampup, console_logging, results_ts_interval, user_group_configs, results_database, post_run_script = configure(project_name)
-    
-    run_localtime = time.localtime() 
-    output_dir = time.strftime('projects/' + project_name + '/results/results_%Y.%m.%d_%H.%M.%S/', run_localtime) 
-        
+
+    run_time, rampup, console_logging, results_ts_interval, user_group_configs, results_database, post_run_script = configure(project_name, project_path)
+
+    run_localtime = time.localtime()
+    time_str = time.strftime('%Y.%m.%d_%H.%M.%S', run_localtime)
+    output_dir = os.path.join(project_path, 'results', 'results_%s' % time_str)
+    logger.debug("Test output directory: %s", output_dir)
+
     # this queue is shared between all processes/threads
     queue = multiprocessing.Queue()
     rw = ResultsWriter(queue, output_dir, console_logging)
     rw.daemon = True
     rw.start()
-    
-    user_groups = [] 
+
+    user_groups = []
     for i, ug_config in enumerate(user_group_configs):
-        ug = UserGroup(queue, i, ug_config.name, ug_config.num_threads, ug_config.script_file, run_time, rampup)
-        user_groups.append(ug)    
+        ug = UserGroup(
+            queue,
+            i,
+            ug_config.name,
+            ug_config.num_threads,
+            test_scripts[ug_config.script_file],
+            run_time,
+            rampup)
+        user_groups.append(ug)
     for user_group in user_groups:
         user_group.start()
-        
-    start_time = time.time() 
-    
+
+    start_time = time.time()
+
     if console_logging:
         for user_group in user_groups:
             user_group.join()
@@ -99,55 +169,70 @@ def run_test(remote_starter=None):
                 sys.stdout.write(chr(27) + '[A' )
             time.sleep(1)
             elapsed = time.time() - start_time
-        
+
         print p
-        
+
         while [user_group for user_group in user_groups if user_group.is_alive()] != []:
             if sys.platform.startswith('win'):
-                print 'waiting for all requests to finish...\r',
+                logger.info('waiting for all requests to finish...\r')
             else:
-                print 'waiting for all requests to finish...\r'
+                logger.info('waiting for all requests to finish...\r')
                 sys.stdout.write(chr(27) + '[A' )
             time.sleep(.5)
-            
+
         if not sys.platform.startswith('win'):
             print
 
     # all agents are done running at this point
     time.sleep(.2) # make sure the writer queue is flushed
-    print '\n\nanalyzing results...\n'
-    results.output_results(output_dir, 'results.csv', run_time, rampup, results_ts_interval, user_group_configs)
-    print 'created: %sresults.html\n' % output_dir
-    
+    logger.info('\nanalyzing results...\n')
+    results.output_results(
+        output_dir,
+        os.path.join(output_dir, 'results.csv'),
+        run_time,
+        rampup,
+        results_ts_interval,
+        user_group_configs,
+        template_dirs=get_mm_templates_dirs(project_path),
+    )
+    logger.info('created: %sresults.html\n', output_dir)
+
     # copy config file to results directory
-    project_config = os.sep.join(['projects', project_name, 'config.cfg'])
-    saved_config = os.sep.join([output_dir, 'config.cfg'])
+    project_config = os.path.join(project_path, 'config.cfg')
+    saved_config = os.path.join(output_dir, 'config.cfg')
     shutil.copy(project_config, saved_config)
-    
+
     if results_database is not None:
-        print 'loading results into database: %s\n' % results_database
+        logger.info('loading results into database: %s\n', results_database)
         import lib.resultsloader
-        lib.resultsloader.load_results_database(project_name, run_localtime, output_dir, results_database, 
-                run_time, rampup, results_ts_interval, user_group_configs)
-    
+        lib.resultsloader.load_results_database(
+            project_name,
+            run_localtime,
+            output_dir,
+            results_database,
+            run_time,
+            rampup,
+            results_ts_interval,
+            user_group_configs)
+
     if post_run_script is not None:
-        print 'running post_run_script: %s\n' % post_run_script
+        logger.info('running post_run_script: %s\n', post_run_script)
         subprocess.call(post_run_script)
-        
-    print 'done.\n'
-    
+
+    logger.info('done.')
+
     if remote_starter is not None:
         remote_starter.test_running = False
         remote_starter.output_dir = output_dir
-    
+
     return
-    
-    
-    
-def configure(project_name):
+
+
+
+def configure(project_name, project_path):
     user_group_configs = []
     config = ConfigParser.ConfigParser()
-    config.read( 'projects/%s/config.cfg' % project_name)
+    config.read(os.path.join(project_path, 'config.cfg'))
     for section in config.sections():
         if section == 'global':
             run_time = config.getint(section, 'run_time')
@@ -170,7 +255,7 @@ def configure(project_name):
             user_group_configs.append(ug_config)
 
     return (run_time, rampup, console_logging, results_ts_interval, user_group_configs, results_database, post_run_script)
-    
+
 
 
 class UserGroupConfig(object):
@@ -178,38 +263,41 @@ class UserGroupConfig(object):
         self.num_threads = num_threads
         self.name = name
         self.script_file = script_file
-    
-    
-    
+
+
+
 class UserGroup(multiprocessing.Process):
-    def __init__(self, queue, process_num, user_group_name, num_threads, script_file, run_time, rampup):
+    def __init__(
+        self, queue, process_num, user_group_name, num_threads, script_module, run_time, rampup):
         multiprocessing.Process.__init__(self)
         self.queue = queue
         self.process_num = process_num
         self.user_group_name = user_group_name
         self.num_threads = num_threads
-        self.script_file = script_file
+        self.script_module = script_module
         self.run_time = run_time
         self.rampup = rampup
         self.start_time = time.time()
-        
+
     def run(self):
         threads = []
         for i in range(self.num_threads):
             spacing = float(self.rampup) / float(self.num_threads)
             if i > 0:
                 time.sleep(spacing)
-            agent_thread = Agent(self.queue, self.process_num, i, self.start_time, self.run_time, self.user_group_name, self.script_file)
+            agent_thread = Agent(
+                self.queue, self.process_num, i, self.start_time, self.run_time,
+                self.user_group_name, self.script_module)
             agent_thread.daemon = True
             threads.append(agent_thread)
-            agent_thread.start()            
+            agent_thread.start()
         for agent_thread in threads:
             agent_thread.join()
-        
 
 
 class Agent(threading.Thread):
-    def __init__(self, queue, process_num, thread_num, start_time, run_time, user_group_name, script_file):
+    def __init__(
+        self, queue, process_num, thread_num, start_time, run_time, user_group_name, script_module):
         threading.Thread.__init__(self)
         self.queue = queue
         self.process_num = process_num
@@ -217,57 +305,54 @@ class Agent(threading.Thread):
         self.start_time = start_time
         self.run_time = run_time
         self.user_group_name = user_group_name
-        self.script_file = script_file
-        
+        self.script_module = script_module
+
         # choose most accurate timer to use (time.clock has finer granularity than time.time on windows, but shouldn't be used on other systems)
         if sys.platform.startswith('win'):
             self.default_timer = time.clock
         else:
             self.default_timer = time.time
-    
-    
+
+
     def run(self):
         elapsed = 0
-        
-        if self.script_file.lower().endswith('.py'):
-            module_name = self.script_file.replace('.py', '')
-        else:
-            sys.stderr.write('ERROR: scripts must have .py extension. can not run test script: %s.  aborting user group: %s\n' % (self.script_file, self.user_group_name))
+        try:
+            Transaction = getattr(self.script_module, 'Transaction')
+        except NameError, e:
+            logger.critical('Can not find Transaction class in test script: %s.', self.script_module)
+            logger.critical('Aborting user group: %s\n', self.user_group_name)
             return
         try:
-            trans = eval(module_name + '.Transaction()')
-        except NameError, e:
-            sys.stderr.write('ERROR: can not find test script: %s.  aborting user group: %s\n' % (self.script_file, self.user_group_name))
-            return
+            trans = Transaction()
         except Exception, e:
-            sys.stderr.write('ERROR: failed initializing Transaction: %s.  aborting user group: %s\n' % (self.script_file, self.user_group_name))
+            logger.critical('Failed initializing Transaction: %s', self.script_module)
+            logger.critical('Aborting user group: %s\n', self.user_group_name)
             return
-        
         trans.custom_timers = {}
-        
+
         # scripts have access to these vars, which can be useful for loading unique data
         trans.thread_num = self.thread_num
         trans.process_num = self.process_num
-            
+
         while elapsed < self.run_time:
             error = ''
-            start = self.default_timer()  
-            
+            start = self.default_timer()
+
             try:
                 trans.run()
             except Exception, e:  # test runner catches all script exceptions here
                 error = str(e).replace(',', '')
 
             finish = self.default_timer()
-            
+
             scriptrun_time = finish - start
-            elapsed = time.time() - self.start_time 
+            elapsed = time.time() - self.start_time
 
             epoch = time.mktime(time.localtime())
-            
+
             fields = (elapsed, epoch, self.user_group_name, scriptrun_time, error, trans.custom_timers)
             self.queue.put(fields)
-            
+
 
 
 class ResultsWriter(threading.Thread):
@@ -279,18 +364,18 @@ class ResultsWriter(threading.Thread):
         self.trans_count = 0
         self.timer_count = 0
         self.error_count = 0
-        
+
         try:
             os.makedirs(self.output_dir, 0755)
         except OSError:
-            sys.stderr.write('ERROR: Can not create output directory\n')
-            sys.exit(1)    
-    
+            logger.critical(
+                'Can not create output directory %s\n',
+                self.output_dir)
+            sys.exit(1)
+
     def run(self):
-        import csv
-        import json
-        with open(self.output_dir + 'results.csv', 'wb') as filestream:
-            f=csv.writer(filestream)
+        with open(os.path.join(self.output_dir, 'results.csv'), 'wb') as filestream:
+            f = csv.writer(filestream)
             while True:
                 try:
                     elapsed, epoch, self.user_group_name, scriptrun_time, error, custom_timers = self.queue.get(False)
