@@ -2,12 +2,13 @@
 #
 #  Copyright (c) 2010 Corey Goldberg (corey@goldb.org)
 #  License: GNU LGPLv3
-#  
+#
 #  This file is part of Multi-Mechanize
 
 
 import sys
 import itertools
+import os.path
 
 try:
     import matplotlib
@@ -15,9 +16,9 @@ try:
     from pylab import *
 except ImportError:
     print 'ERROR: can not import Matplotlib. install Matplotlib to generate graphs'
-    
 
-def resp_graph(lines, points, line_below, boxplots, image_name, timer, dir='./'):
+
+def resp_graph(lines, points, line_below, boxplots, image_name, timer, output_dir='./'):
     fig = figure(figsize=(8, 12))  # image dimensions
     fig.suptitle('Timer: '+timer)
     ax1 = fig.add_subplot(311)
@@ -31,7 +32,7 @@ def resp_graph(lines, points, line_below, boxplots, image_name, timer, dir='./')
     #ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
     ax.set_ylabel('Response Time (secs)' , size='x-small')
     ax.grid(True, color='#666666')
-    ax.tick_params(labelsize='x-small')
+    #ax.tick_params(labelsize='x-small')
 
     colors=itertools.cycle(['green','orange','purple'])
     for label, line in lines:
@@ -56,13 +57,13 @@ def resp_graph(lines, points, line_below, boxplots, image_name, timer, dir='./')
     #ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
     ax.set_ylabel('Response Time (secs)' , size='x-small')
     ax.grid(True, color='#666666')
-    ax.tick_params(labelsize='x-small')
+    #ax.tick_params(labelsize='x-small')
 
-    # Draw the actual timer values behind everything and almost transparent, 
+    # Draw the actual timer values behind everything and almost transparent,
     # just as a backdrop
     xseq,yseq=zip(*points[1])
     ax.plot(xseq,yseq, alpha=.2,
-        color='gray', linestyle='-', linewidth=0.0, marker='o', 
+        color='gray', linestyle='-', linewidth=0.0, marker='o',
         markeredgecolor='gray', markerfacecolor='gray', markersize=2.0,zorder=-1)
 
     pos, boxes=zip(*boxplots)
@@ -86,16 +87,16 @@ def resp_graph(lines, points, line_below, boxplots, image_name, timer, dir='./')
     ax.set_xlabel('Elapsed Time In Test (secs)', size='x-small')
     ax.set_ylabel('Timers Per Second (count)' , size='x-small')
     ax.grid(True, color='#666666')
-    ax.tick_params(labelsize='x-small')
+    #ax.tick_params(labelsize='x-small')
 
     throughput_label, throughputs_dict=line_below
     x_seq = sorted(throughputs_dict.keys())
     y_seq = [throughputs_dict[x] for x in x_seq]
-    ax.plot(x_seq, y_seq, 
-        color='red', linestyle='-', linewidth=0.75, marker='o', 
+    ax.plot(x_seq, y_seq,
+        color='red', linestyle='-', linewidth=0.75, marker='o',
         markeredgecolor='red', markerfacecolor='yellow', markersize=2.0,
              label=throughput_label)
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
 
-    savefig(dir + image_name)
+    savefig(os.path.join(output_dir, image_name))
