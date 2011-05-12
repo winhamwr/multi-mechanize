@@ -175,14 +175,14 @@ class Results(object):
         self.uniq_timer_names = set()
         self.uniq_user_group_names = set()
 
-        self.resp_stats_list = self.__parse_file()
+        self.resp_stats_list = self.parse_file()
 
         self.epoch_start = self.resp_stats_list[0].epoch_secs
         self.epoch_finish = self.resp_stats_list[-1].epoch_secs
         self.start_datetime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.epoch_start))
         self.finish_datetime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.epoch_finish))
 
-    def __parse_file(self):
+    def parse_file(self):
         if not os.path.exists(self.results_file_name):
             logger.critical("Results CSV doesn't exist")
             logger.debug("Expected results CSV at: %s", self.results_file_name)
