@@ -85,3 +85,10 @@ News
    Currently, ``results_template.html`` is the only used template and to change
    your output, simple copy that file to ``your_project/templates/`` and modify
    to your heart's content.
+
+
+* Added a script to convert Multi-Mechanize CSV output to JMeter's JTL XML
+  format.
+
+    Hudson users rejoice! mm-csv-to-jmeter.py lets you turn your CSV in to the
+    format that Hudson's PerformancePlugin expects.

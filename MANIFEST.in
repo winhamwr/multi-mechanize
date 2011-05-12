@@ -2,9 +2,11 @@ include AUTHORS
 include LICENSE
 include README.rst
 include MANIFEST.in
+recursive-include contrib *.py
 recursive-include multi_mechanize *.py
 recursive-include multi_mechanize/templates *.html
 recursive-include project_templates *
+prune contrib/*.pyc
 prune multi_mechanize/*.pyc
 prune project_templates/starter_project/results/*
 prune project_templates/test_project/results/*
