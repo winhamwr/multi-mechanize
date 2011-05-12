@@ -21,7 +21,7 @@ from multi_mechanize import results, progressbar
 
 MM_ROOT = multi_mechanize.__path__[0]
 
-usage = 'Usage: %prog <project name> [options]'
+usage = 'Usage: %prog <project_path> [options]'
 parser = optparse.OptionParser(usage=usage)
 parser.add_option('-p', '--port',
                   dest='port', type='int',
@@ -33,6 +33,9 @@ parser.add_option('-R', '--reanalyze-results',
                   dest='results_dir',
                   help='Instead of running a test, reanalyze the results in the'
                   ' given directory based on the CSV data')
+parser.add_option('--clone-test-project',
+                  dest='clone_test_project', action='store_true', default=False,
+                  help='Clone the test project to your <project_path>')
 cmd_opts, args = parser.parse_args()
 
 if cmd_opts.verbose:
@@ -57,9 +60,9 @@ def get_project_path(project_name):
         if os.path.exists(path):
             return path
 
-    logger.critical('\nCan not find project: %s\n\n', project_name)
-    logger.debug('Searched paths: %s\n\n', paths)
-    sys.exit(1)
+    logger.debug("Project path not found. Assuming that we're performing a clone")
+    logger.debug("Searched paths: %s", paths)
+    return paths[0]
 
 project_path = get_project_path(project_name)
 logger.debug("Project path is %s", project_path)
@@ -102,6 +105,15 @@ def import_test_scripts(project_path):
 test_scripts = import_test_scripts(project_path)
 
 def main():
+    if cmd_opts.clone_test_project:
+        clone_test_project(project_name, project_path)
+        return
+
+    # Ensure we actually have a project now
+    if not os.path.exists(project_path):
+        logger.critical('Can not find project at: %s', project_path)
+        sys.exit(1)
+
     if cmd_opts.results_dir:
         # Don't run a test, just reprocess past results
         reanalyze_results(project_name, project_path, cmd_opts.results_dir)
@@ -111,6 +123,39 @@ def main():
             cmd_opts.port, project_name, run_test)
     else:
         run_test(project_name, project_path)
+
+def clone_test_project(project_name, project_path, remote_starter=None):
+    if os.path.exists(project_path):
+        logger.critical("Clone destination folder already exists: %s", project_path)
+        exit(1)
+    os.mkdir(project_path)
+
+    test_project_dir = os.path.abspath(
+        os.path.join(MM_ROOT, '..', 'default_project'))
+    logger.debug("Test project located at: %s", test_project_dir)
+
+    # Copy the contents of the default_project to the project path
+    for d, subdirs, files in os.walk(test_project_dir):
+        # Cribbed from Django's django.core.management.base.copy_helper
+        relative_dir = d[len(test_project_dir)+1:]
+        if relative_dir:
+            os.mkdir(os.path.join(project_path, relative_dir))
+        for f in files:
+            if f.endswith('.pyc'):
+                continue
+            path_old = os.path.join(d, f)
+            path_new = os.path.join(project_path, relative_dir, f)
+            fp_old = open(path_old, 'r')
+            fp_new = open(path_new, 'w')
+            fp_new.write(fp_old.read())
+            fp_old.close()
+            fp_new.close()
+            try:
+                shutil.copymode(path_old, path_new)
+            except OSError:
+                logger.warning("Couldn't set permission bits on %s. You're probably using an uncommon filesystem setup. No problem.", path_new)
+
+    logger.info("Successfully cloned the default project to: %s", project_path)
 
 def run_test(project_name, project_path, remote_starter=None):
     if remote_starter is not None:

@@ -93,7 +93,7 @@ Quick Getting-Started
 Multi-Mechanize comes packaged with a test project that you can clone to see
 what can be done out of the box. To clone and run that project ::
 
-    $ multi-mechanize.py --clone-test-project /path/to/my_test_project
+    $ multi-mechanize.py /path/to/my_test_project --clone-test-project
     $ multi-mechanize.py /path/to/my_test_project
 
 Detailed Getting-Started
