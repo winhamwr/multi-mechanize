@@ -84,7 +84,7 @@ def output_results(
         user_group_configs = []
     # change this to PackageLoader when we get an installable package
     if not template_dirs:
-        template_dirs = 'lib/templates'
+        template_dirs = 'templates'
     env = Environment(loader=FileSystemLoader(template_dirs))
     template = env.get_template('results_template.html')
     template_vars=dict()

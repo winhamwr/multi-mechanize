@@ -1,0 +1,9 @@
+include AUTHORS
+include LICENSE
+include README.rst
+include MANIFEST.in
+recursive-include multi_mechanize *.py
+recursive-include multi_mechanize/templates *.html
+recursive-include default_project *
+prune multi_mechanize/*.pyc
+prune default_project/results

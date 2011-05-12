@@ -1,16 +1,4 @@
 #!/usr/bin/env python
-#
-#  Copyright (c) 2010 Corey Goldberg (corey@goldb.org)
-#  License: GNU LGPLv3 - distributed under the terms of the GNU Lesser General
-#  Public License version 3
-#
-#  This file is part of Multi-Mechanize:
-#       Multi-Process, Multi-Threaded, Web Load Generator, with python-mechanize
-#       agents
-#
-#  requires Python 2.6+
-
-
 
 import ConfigParser
 import glob
@@ -24,13 +12,14 @@ import subprocess
 import sys
 import threading
 import time
-import lib.results as results
-import lib.progressbar as progressbar
 import csv
 import json
 import traceback
 
-MM_ROOT = os.path.abspath(os.path.dirname(__file__))
+import multi_mechanize
+from multi_mechanize import results, progressbar
+
+MM_ROOT = multi_mechanize.__path__[0]
 
 usage = 'Usage: %prog <project name> [options]'
 parser = optparse.OptionParser(usage=usage)
@@ -53,15 +42,13 @@ try:
 except IndexError:
     logger.critical('\nNo project specified\n\n')
     logger.critical('usage: python multi-mechanize.py <project_name>\n')
-    logger.critical('example: python multi-mechanize.py default_project\n\n')
     sys.exit(1)
 
 def get_project_path(project_name):
-    rel_project_path = os.path.join('projects', project_name)
     abs_project_path = os.path.abspath(project_name)
-    mm_root_project_path = os.path.join(MM_ROOT, 'projects', project_name)
+    rel_project_path = os.path.join('projects', project_name)
 
-    paths = [rel_project_path, abs_project_path, mm_root_project_path]
+    paths = [abs_project_path, rel_project_path]
     for path in paths:
         if os.path.exists(path):
             return path
@@ -82,7 +69,7 @@ def get_mm_templates_dirs(project_path):
     """
     dir_paths = [
         os.path.join(project_path, 'templates'),
-        os.path.join(MM_ROOT, 'lib', 'templates'),
+        os.path.join(MM_ROOT, 'templates'),
     ]
     if not any([os.path.exists(dir_path) for dir_path in dir_paths]):
         logger.critical('\nNo templates directory found')
@@ -112,8 +99,9 @@ test_scripts = import_test_scripts(project_path)
 
 def main():
     if cmd_opts.port:
-        import lib.rpcserver
-        lib.rpcserver.launch_rpc_server(cmd_opts.port, project_name, run_test)
+        import multi_mechanize.rpcserver
+        multi_mechanize.rpcserver.launch_rpc_server(
+            cmd_opts.port, project_name, run_test)
     else:
         run_test(project_name, project_path)
 
@@ -186,7 +174,7 @@ def run_test(project_name, project_path, remote_starter=None):
 
     # all agents are done running at this point
     time.sleep(.2) # make sure the writer queue is flushed
-    logger.info('\nanalyzing results...\n')
+    logger.info('analyzing results...\n')
     results.output_results(
         output_dir,
         os.path.join(output_dir, 'results.csv'),
@@ -196,7 +184,7 @@ def run_test(project_name, project_path, remote_starter=None):
         user_group_configs,
         template_dirs=get_mm_templates_dirs(project_path),
     )
-    logger.info('created: %sresults.html\n', output_dir)
+    logger.info('created: %s', os.path.join(output_dir, 'results.html'))
 
     # copy config file to results directory
     project_config = os.path.join(project_path, 'config.cfg')
