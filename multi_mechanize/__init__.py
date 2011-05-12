@@ -1,7 +1,7 @@
 """
 Multi-Process, Multi-Threaded, Web Load Generator, with python-mechanize agents.
 """
-# :copyright: (c) 2010 Corey Goldberg (corey@goldb.org)
+# :copyright: (c) 2010-2011 Corey Goldberg (corey@goldb.org)
 # :license: LGPLv3, see LICENSE for more details
 
 VERSION = (1, 2, 0, "dev")

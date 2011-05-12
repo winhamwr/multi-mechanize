@@ -29,6 +29,10 @@ parser.add_option('-p', '--port',
 parser.add_option('-v', '--verbose',
                   dest='verbose', action='store_true', default=False,
                   help='Produce verbose output')
+parser.add_option('-R', '--reanalyze-results',
+                  dest='results_dir',
+                  help='Instead of running a test, reanalyze the results in the'
+                  ' given directory based on the CSV data')
 cmd_opts, args = parser.parse_args()
 
 if cmd_opts.verbose:
@@ -98,21 +102,23 @@ def import_test_scripts(project_path):
 test_scripts = import_test_scripts(project_path)
 
 def main():
-    if cmd_opts.port:
+    if cmd_opts.results_dir:
+        # Don't run a test, just reprocess past results
+        reanalyze_results(project_name, project_path, cmd_opts.results_dir)
+    elif cmd_opts.port:
         import multi_mechanize.rpcserver
         multi_mechanize.rpcserver.launch_rpc_server(
             cmd_opts.port, project_name, run_test)
     else:
         run_test(project_name, project_path)
 
-
-
 def run_test(project_name, project_path, remote_starter=None):
     if remote_starter is not None:
         remote_starter.test_running = True
         remote_starter.output_dir = None
 
-    run_time, rampup, console_logging, results_ts_interval, user_group_configs, results_database, post_run_script = configure(project_name, project_path)
+    config_path = os.path.join(project_path, 'config.cfg')
+    run_time, rampup, console_logging, results_ts_interval, user_group_configs, results_database, post_run_script = configure(project_name, project_path, config_path)
 
     run_localtime = time.localtime()
     time_str = time.strftime('%Y.%m.%d_%H.%M.%S', run_localtime)
@@ -193,8 +199,8 @@ def run_test(project_name, project_path, remote_starter=None):
 
     if results_database is not None:
         logger.info('loading results into database: %s\n', results_database)
-        import lib.resultsloader
-        lib.resultsloader.load_results_database(
+        import multi_mechanize.resultsloader
+        multi_mechanize.resultsloader.load_results_database(
             project_name,
             run_localtime,
             output_dir,
@@ -216,12 +222,37 @@ def run_test(project_name, project_path, remote_starter=None):
 
     return
 
+def reanalyze_results(project_name, project_path, results_dir):
+    config_path = os.path.join(results_dir, 'config.cfg')
+    run_time, rampup, console_logging, results_ts_interval, user_group_configs, results_database, post_run_script = configure(project_name, project_path, config_path)
+
+    # Get the top-level directory name for our results dir
+    if results_dir[-1] == os.path.sep:
+        results_dir = results_dir[:-1]
+    _, reran_project_time = os.path.split(results_dir)
+    output_dir = os.path.join(project_path, 'results', reran_project_time)
+    logger.debug("Storing reprocessed results in: %s", output_dir)
+
+    logger.info('Re-analyzing results...\n')
+    results.output_results(
+        output_dir,
+        os.path.join(output_dir, 'results.csv'),
+        run_time,
+        rampup,
+        results_ts_interval,
+        user_group_configs,
+        template_dirs=get_mm_templates_dirs(project_path),
+    )
+    logger.info('created: %s', os.path.join(output_dir, 'results.html'))
 
 
-def configure(project_name, project_path):
+def configure(project_name, project_path, config_path):
+    if not os.path.exists(config_path):
+        logger.critical("Config file does not exist: %s", config_path)
+        exit(1)
     user_group_configs = []
     config = ConfigParser.ConfigParser()
-    config.read(os.path.join(project_path, 'config.cfg'))
+    config.read(config_path)
     for section in config.sections():
         if section == 'global':
             run_time = config.getint(section, 'run_time')
