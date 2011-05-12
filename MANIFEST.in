@@ -4,6 +4,7 @@ include README.rst
 include MANIFEST.in
 recursive-include multi_mechanize *.py
 recursive-include multi_mechanize/templates *.html
-recursive-include default_project *
+recursive-include project_templates *
 prune multi_mechanize/*.pyc
-prune default_project/results
+prune project_templates/starter_project/results/*
+prune project_templates/test_project/results/*

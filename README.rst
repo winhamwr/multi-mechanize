@@ -105,7 +105,7 @@ Creating Your Project
 Multi-Mechanize provides a ``--start-project`` command line option to create a
 default configuration and directory structure for your project ::
 
-    $ multi-mechanize.py --start-project path/to/my_project
+    $ multi-mechanize.py path/to/my_project --start-project
 
 This command simply copies across several things for you.
 

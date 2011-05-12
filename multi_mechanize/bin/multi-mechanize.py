@@ -36,6 +36,9 @@ parser.add_option('-R', '--reanalyze-results',
 parser.add_option('--clone-test-project',
                   dest='clone_test_project', action='store_true', default=False,
                   help='Clone the test project to your <project_path>')
+parser.add_option('--start-project',
+                  dest='clone_starter_project', action='store_true', default=False,
+                  help='Clone the starter project to your <project_path>')
 cmd_opts, args = parser.parse_args()
 
 if cmd_opts.verbose:
@@ -106,7 +109,10 @@ test_scripts = import_test_scripts(project_path)
 
 def main():
     if cmd_opts.clone_test_project:
-        clone_test_project(project_name, project_path)
+        clone_project_tpl(project_name, project_path, 'test_project')
+        return
+    elif cmd_opts.clone_starter_project:
+        clone_project_tpl(project_name, project_path, 'starter_project')
         return
 
     # Ensure we actually have a project now
@@ -124,20 +130,20 @@ def main():
     else:
         run_test(project_name, project_path)
 
-def clone_test_project(project_name, project_path, remote_starter=None):
+def clone_project_tpl(project_name, project_path, project_tpl):
     if os.path.exists(project_path):
         logger.critical("Clone destination folder already exists: %s", project_path)
         exit(1)
     os.mkdir(project_path)
 
-    test_project_dir = os.path.abspath(
-        os.path.join(MM_ROOT, '..', 'default_project'))
-    logger.debug("Test project located at: %s", test_project_dir)
+    project_tpl_dir = os.path.abspath(
+        os.path.join(MM_ROOT, '..', 'project_templates', project_tpl))
+    logger.debug("Test project located at: %s", project_tpl_dir)
 
     # Copy the contents of the default_project to the project path
-    for d, subdirs, files in os.walk(test_project_dir):
+    for d, subdirs, files in os.walk(project_tpl_dir):
         # Cribbed from Django's django.core.management.base.copy_helper
-        relative_dir = d[len(test_project_dir)+1:]
+        relative_dir = d[len(project_tpl_dir)+1:]
         if relative_dir:
             os.mkdir(os.path.join(project_path, relative_dir))
         for f in files:
@@ -153,9 +159,12 @@ def clone_test_project(project_name, project_path, remote_starter=None):
             try:
                 shutil.copymode(path_old, path_new)
             except OSError:
-                logger.warning("Couldn't set permission bits on %s. You're probably using an uncommon filesystem setup. No problem.", path_new)
+                logger.warning(
+                    "Couldn't set permission bits on %s. You're probably using "
+                    "an uncommon filesystem setup. No problem.", path_new)
 
-    logger.info("Successfully cloned the default project to: %s", project_path)
+    logger.info(
+        "Successfully cloned the %s project to: %s", project_tpl, project_path)
 
 def run_test(project_name, project_path, remote_starter=None):
     if remote_starter is not None:
@@ -217,7 +226,6 @@ def run_test(project_name, project_path, remote_starter=None):
                 logger.info('waiting for all requests to finish...\r')
             else:
                 logger.info('waiting for all requests to finish...\r')
-                sys.stdout.write(chr(27) + '[A' )
             time.sleep(.5)
 
         if not sys.platform.startswith('win'):
