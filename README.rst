@@ -170,6 +170,8 @@ file in the top distribution directory for the full license text.
 .. _`report_3`: http://www.goldb.org/multi-mechanize/sample_results/membase_results_280thread_30min_2010.07.26_14.42.19/results.html
 .. _`Sample Graphs`: http://code.google.com/p/multi-mechanize/wiki/SampleGraphs
 .. _`Database Storage for Test Data and Results`: http://code.google.com/p/multi-mechanize/wiki/DatabaseStorage
+.. _`Mechanize`: http://wwwsearch.sourceforge.net/mechanize/
+.. _`WWW::Mechanize`: http://search.cpan.org/dist/WWW-Mechanize/
 .. _`matplotlib`: http://matplotlib.sourceforge.net/
 .. _`matplotlib documentation`: http://matplotlib.sourceforge.net/users/installing.html
 .. _`Configuration File Format`: http://code.google.com/p/multi-mechanize/wiki/ConfigFile
