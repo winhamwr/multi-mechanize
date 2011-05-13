@@ -44,8 +44,8 @@ def write_jmeter_output(mm_data, output_path):
     for test_transaction in mm_data:
         # Each transaction might have multiple timers
         transaction_root = ET.SubElement(root, 'sample')
-        transaction_root.set('t', str(test_transaction.trans_time))
-        transaction_root.set('ts', str(test_transaction.epoch_secs)) # timestamp
+        transaction_root.set('t', '%d' % test_transaction.trans_time)
+        transaction_root.set('ts', '%d' % test_transaction.epoch_secs) # timestamp
         transaction_root.set('lb', test_transaction.user_group_name) # Label
 
         if test_transaction.error:
@@ -59,8 +59,8 @@ def write_jmeter_output(mm_data, output_path):
         for timer_name, timer_duration in test_transaction.custom_timers.items():
             timer_duration = float(timer_duration)
             timer_element = ET.SubElement(transaction_root, 'sample')
-            timer_element.set('t', str(timer_duration))
-            timer_element.set('ts', str(test_transaction.epoch_secs))
+            timer_element.set('t', '%d' % timer_duration)
+            timer_element.set('ts', '%d' % test_transaction.epoch_secs)
             timer_element.set('lb', timer_name)
             timer_element.set('ec', '0')
 
