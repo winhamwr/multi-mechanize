@@ -29,7 +29,7 @@ long_description = codecs.open("README.rst", "r", "utf-8").read()
 
 console_scripts = [
         'multi_mechanize/bin/multi-mechanize.py',
-        'contrib/mm-csv-to-jmeter.py',
+        'contrib/mm_to_jmeter.py',
 ]
 
 setup(
