@@ -45,7 +45,8 @@ def write_jmeter_output(mm_data, output_path):
         # Each transaction might have multiple timers
         transaction_root = ET.SubElement(root, 'sample')
         # JMeter uses ms for time
-        transaction_root.set('t', '%d' % test_transaction.trans_time * 1000)
+        ms_trans_time = test_transaction.trans_time * 1000
+        transaction_root.set('t', '%d' % ms_trans_time)
         transaction_root.set('ts', '%d' % test_transaction.epoch_secs) # timestamp
         transaction_root.set('lb', test_transaction.user_group_name) # Label
         transaction_root.set('sc', '1') # Sample count
@@ -63,7 +64,8 @@ def write_jmeter_output(mm_data, output_path):
         for timer_name, timer_duration in test_transaction.custom_timers.items():
             timer_duration = float(timer_duration)
             timer_element = ET.SubElement(transaction_root, 'sample')
-            timer_element.set('t', '%d' % timer_duration)
+            ms_trans_time = timer_duration * 1000
+            timer_element.set('t', '%d' % ms_trans_time)
             timer_element.set('ts', '%d' % test_transaction.epoch_secs)
             timer_element.set('lb', timer_name)
             timer_element.set('sc', '1')
