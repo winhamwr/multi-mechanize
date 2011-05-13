@@ -185,6 +185,8 @@ def run_test(project_name, project_path, remote_starter=None):
     rw.daemon = True
     rw.start()
 
+    logger.info("Starting testing agents")
+    logger.info("Test configured to run for %s seconds", run_time)
     user_groups = []
     for i, ug_config in enumerate(user_group_configs):
         ug = UserGroup(
