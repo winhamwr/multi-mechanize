@@ -389,7 +389,7 @@ class Agent(threading.Thread):
     def run(self):
         elapsed = 0
         try:
-            Transaction = getattr(self.script_module, 'Transaction')
+            Transaction = self.script_module.Transaction
         except NameError, e:
             logger.critical('Can not find Transaction class in test script: %s.', self.script_module)
             logger.critical('Aborting user group: %s\n', self.user_group_name)
