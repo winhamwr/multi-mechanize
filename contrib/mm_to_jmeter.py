@@ -44,16 +44,20 @@ def write_jmeter_output(mm_data, output_path):
     for test_transaction in mm_data:
         # Each transaction might have multiple timers
         transaction_root = ET.SubElement(root, 'sample')
-        transaction_root.set('t', '%d' % test_transaction.trans_time)
+        # JMeter uses ms for time
+        transaction_root.set('t', '%d' % test_transaction.trans_time * 1000)
         transaction_root.set('ts', '%d' % test_transaction.epoch_secs) # timestamp
         transaction_root.set('lb', test_transaction.user_group_name) # Label
+        transaction_root.set('sc', '1') # Sample count
 
         if test_transaction.error:
             transaction_root.set('ec', '1') # Was an error
+            transaction_root.set('s', '0') # Was an error
             # Errors don't have custom_timers
             continue
         else:
             transaction_root.set('ec', '0')
+            transaction_root.set('s', '1')
 
         # Parse the custom_timers and add each as a JMeter sub-sample
         for timer_name, timer_duration in test_transaction.custom_timers.items():
@@ -62,7 +66,9 @@ def write_jmeter_output(mm_data, output_path):
             timer_element.set('t', '%d' % timer_duration)
             timer_element.set('ts', '%d' % test_transaction.epoch_secs)
             timer_element.set('lb', timer_name)
+            timer_element.set('sc', '1')
             timer_element.set('ec', '0')
+            timer_element.set('s', '1')
 
     tree = ET.ElementTree(root)
     tree.write(output_path)
