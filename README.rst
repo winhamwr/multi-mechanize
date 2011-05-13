@@ -84,7 +84,7 @@ Installing Multi-Mechanize
 A Pypi package might be forthcoming, but installation from source is easy via
 Pip::
 
-    $ pip install git+git://github.com/winhamwr/multi-mechanize.git#egg=multi-mechanize
+    $ pip install -e git+git://github.com/winhamwr/multi-mechanize.git#egg=multi-mechanize
 
 
 Quick Getting-Started
