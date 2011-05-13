@@ -47,8 +47,10 @@ def write_jmeter_output(mm_data, output_path):
         # JMeter uses ms for time
         ms_trans_time = test_transaction.trans_time * 1000
         transaction_root.set('t', '%d' % ms_trans_time)
-        transaction_root.set('ts', '%d' % test_transaction.epoch_secs) # timestamp
-        transaction_root.set('lb', test_transaction.user_group_name) # Label
+        ms_timestamp = test_transaction.epoch_secs * 1000
+        transaction_root.set('ts', '%d' % ms_timestamp)
+        label = test_transaction.user_group_name.lstrip('user_group-')
+        transaction_root.set('lb', label) # Label
         transaction_root.set('sc', '1') # Sample count
 
         if test_transaction.error:
@@ -66,7 +68,8 @@ def write_jmeter_output(mm_data, output_path):
             timer_element = ET.SubElement(transaction_root, 'sample')
             ms_trans_time = timer_duration * 1000
             timer_element.set('t', '%d' % ms_trans_time)
-            timer_element.set('ts', '%d' % test_transaction.epoch_secs)
+            # Subtimers don't have timestamps, so use the Transaction ts
+            timer_element.set('ts', '%d' % ms_timestamp)
             timer_element.set('lb', timer_name)
             timer_element.set('sc', '1')
             timer_element.set('ec', '0')
